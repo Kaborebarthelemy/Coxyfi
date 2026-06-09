@@ -1,13 +1,13 @@
 -- =============================================================================
--- seed_perf_test.sql  –  CoxyFi  –  Jeu de données de performance (100 000 lignes)
--- Utilisation : mysql -u<user> -p <db> < scripts/seed_perf_test.sql
+-- seed_perf_test.sql – CoxyFi – Performance dataset (100,000 rows)
+-- Usage: mysql -u<user> -p <db> < scripts/seed_perf_test.sql
 -- =============================================================================
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET autocommit = 0;
 
--- Procédure de génération de données synthétiques
+-- Procedure for generating synthetic data
 DROP PROCEDURE IF EXISTS coxyfi_seed_perf;
 
 DELIMITER $$
@@ -32,7 +32,7 @@ BEGIN
     DECLARE offer_id_local BIGINT UNSIGNED;
 
     -- -----------------------------------------------------------------------
-    -- Registre minimal
+    -- Minimal registry entries for the assets used in the offers
     -- -----------------------------------------------------------------------
     INSERT IGNORE INTO registry (entity_type, chain_id, address, name, symbol, decimals, is_verified, is_active)
     VALUES
@@ -43,11 +43,11 @@ BEGIN
       ('asset', 1, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 'Dai Stablecoin',   'DAI',  18, 1, 1);
 
     -- -----------------------------------------------------------------------
-    -- Boucle principale : 100 000 offres et ~50 000 prêts
+    -- Main loop: 100,000 offers and ~50,000 loans
     -- -----------------------------------------------------------------------
     WHILE i <= 100000 DO
 
-        -- Génération pseudo-aléatoire déterministe
+        -- Pseudo-random deterministic generation
         SET asset_sym       = ELT(1 + (i MOD 5), 'USDC','USDT','WBTC','WETH','DAI');
         SET asset_addr      = ELT(1 + (i MOD 5),
             '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -92,7 +92,7 @@ BEGIN
             DATE_ADD(blk_ts, INTERVAL dur_sec SECOND)
         );
 
-        -- Création d'un prêt pour ~50% des offres matchées
+        -- Creation of a loan for ~50% of matched offers
         IF offer_status = 'matched' AND (i MOD 2 = 0) THEN
             SET offer_id_local = LAST_INSERT_ID();
             SET on_chain_loan  = CONCAT('0xL', LPAD(HEX(i), 63, '0'));
@@ -126,7 +126,7 @@ BEGIN
             );
         END IF;
 
-        -- Commit par lot de 1 000 pour la performance
+        -- Committed in batches of 1,000 for performance
         IF (i MOD 1000 = 0) THEN
             COMMIT;
         END IF;
