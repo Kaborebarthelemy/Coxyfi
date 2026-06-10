@@ -1,13 +1,13 @@
 -- =============================================================================
--- tests/acceptance_tests.sql  –  CoxyFi  –  Tests d'acceptation DB1/DB2/DB3
--- Utilisation : mysql -u<user> -p <db> < tests/acceptance_tests.sql
+-- tests/acceptance_tests.sql – CoxyFi – DB1/DB2/DB3 acceptance tests
+-- Usage: mysql -u<user> -p <db> < tests/acceptance_tests.sql
 -- =============================================================================
 
 SET NAMES utf8mb4;
 SET @test_failures = 0;
 SET @test_count    = 0;
 
--- Macro de vérification
+-- Macro for asserting true conditions
 DROP PROCEDURE IF EXISTS assert_true;
 DELIMITER $$
 CREATE PROCEDURE assert_true(IN p_name VARCHAR(256), IN p_condition TINYINT(1))
@@ -23,7 +23,7 @@ END$$
 DELIMITER ;
 
 -- =============================================================================
--- DB1 – MIGRATION : Vérifier que toutes les tables requises existent
+-- DB1 – MIGRATION: Verify that all required tables exist
 -- =============================================================================
 SELECT '=== DB1 : Migration ===' AS section;
 
@@ -75,14 +75,14 @@ CALL assert_true('DB1.10 – FK fiat_claims→loans existe',
 
 
 -- =============================================================================
--- DB2 – CONTRAINTES : Unicité des identifiants actifs
+-- DB2 – CONSTRAINTS: Uniqueness of active identifiers
 -- =============================================================================
 SELECT '=== DB2 : Contraintes d''unicité ===' AS section;
 
--- Prépare des données de test isolées
+-- Prepare isolated test data
 SET @test_on_chain = CONCAT('test_constraint_', UNIX_TIMESTAMP());
 
--- Insertion d'une offre de test
+-- Inserting a test offer
 INSERT INTO offers (
     on_chain_id, offer_type, status, lender_address, asset_address, asset_symbol,
     principal_amount, interest_rate_bps, duration_seconds,
@@ -96,17 +96,17 @@ INSERT INTO offers (
     CONCAT('0x', LPAD(HEX(UNIX_TIMESTAMP()), 64, '0')), 0
 );
 
--- Test DB2.1 : doublon on_chain_id sur offers → doit échouer
+-- Test DB2.1 : duplicate on_chain_id on offers → must fail
 CALL assert_true('DB2.1 – Doublon on_chain_id offers rejeté',
     (SELECT
         CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
      FROM (
         SELECT @test_ok := 0
      ) t
-    ) = 0  -- dummy; on utilise le handler ci-dessous
+    ) = 0  -- dummy; we use the handler below
 );
 
--- Handler pour tester l'exception de contrainte
+-- Handler for testing constraint exceptions
 BEGIN
     DECLARE CONTINUE HANDLER FOR SQLSTATE '23000'
         SELECT '[PASS] DB2.1 – Doublon on_chain_id offers rejeté (duplicate key)' AS test_result;
@@ -127,7 +127,7 @@ BEGIN
     SET @test_failures = @test_failures + 1;
 END;
 
--- Test DB2.2 : doublon (chain_id, tx_hash, log_index) → doit échouer
+-- Test DB2.2 : doublon (chain_id, tx_hash, log_index) → must fail
 BEGIN
     DECLARE CONTINUE HANDLER FOR SQLSTATE '23000'
         SELECT '[PASS] DB2.2 – Doublon (chain_id,tx_hash,log_index) offers rejeté' AS test_result;
@@ -142,7 +142,7 @@ BEGIN
         500.0, 300, 1296000,
         1, 99999999,
         NOW(3),
-        -- Même tx_hash et log_index que l'offre de test ci-dessus
+        -- Same tx_hash and log_index as the test offer above
         (SELECT tx_hash FROM offers WHERE on_chain_id = @test_on_chain),
         0
     );
@@ -150,7 +150,7 @@ BEGIN
     SET @test_failures = @test_failures + 1;
 END;
 
--- Test DB2.3 : unicité alias (wallet_address, alias)
+-- Test DB2.3 : uniqueness alias (wallet_address, alias)
 BEGIN
     DECLARE CONTINUE HANDLER FOR SQLSTATE '23000'
         SELECT '[PASS] DB2.3 – Doublon (wallet_address,alias) rejeté' AS test_result;
@@ -162,7 +162,7 @@ BEGIN
     SET @test_failures = @test_failures + 1;
 END;
 
--- Test DB2.4 : prêt orphelin (offer_id inexistant) → FK violation
+-- Test DB2.4 : orphan loan (non-existent offer_id) → FK violation
 BEGIN
     DECLARE CONTINUE HANDLER FOR SQLSTATE '23000'
         SELECT '[PASS] DB2.4 – Prêt orphelin (FK violation) rejeté' AS test_result;
@@ -192,12 +192,12 @@ DELETE FROM offers       WHERE on_chain_id = @test_on_chain;
 
 
 -- =============================================================================
--- DB3 – PERFORMANCE : Requêtes clés sur le jeu de données de 100 000 lignes
---       (Exécuter après seed_perf_test.sql)
+-- DB3 – PERFORMANCE: Key queries on the 100,000-row dataset
+-- (Run after seed_perf_test.sql)
 -- =============================================================================
 SELECT '=== DB3 : Performance ===' AS section;
 
--- DB3.1 : Affichage des offres avec filtres
+-- DB3.1 : Displaying offers with filters
 SET @t0 = SYSDATE(6);
 SELECT id, offer_type, status, asset_symbol, principal_amount, interest_rate_bps, block_timestamp
 FROM   offers
@@ -210,7 +210,7 @@ SET @elapsed_db3_1 = TIMESTAMPDIFF(MICROSECOND, @t0, SYSDATE(6)) / 1000;
 SELECT CONCAT('DB3.1 – Listing offres filtrées : ', @elapsed_db3_1, ' ms') AS perf_result;
 CALL assert_true('DB3.1 – Listing offres ≤ 200 ms', @elapsed_db3_1 <= 200);
 
--- DB3.2 : Prêts par emprunteur
+-- DB3.2 : Loans per borrower
 SET @sample_borrower = (SELECT borrower_address FROM loans WHERE borrower_address IS NOT NULL LIMIT 1);
 SET @t0 = SYSDATE(6);
 SELECT id, status, principal_amount, interest_rate_bps, originated_at, due_at
@@ -223,7 +223,7 @@ SET @elapsed_db3_2 = TIMESTAMPDIFF(MICROSECOND, @t0, SYSDATE(6)) / 1000;
 SELECT CONCAT('DB3.2 – Prêts par emprunteur : ', @elapsed_db3_2, ' ms') AS perf_result;
 CALL assert_true('DB3.2 – Prêts emprunteur ≤ 200 ms', @elapsed_db3_2 <= 200);
 
--- DB3.3 : Recherche permanente (FULLTEXT)
+-- DB3.3 : Permanent research (FULLTEXT)
 SET @t0 = SYSDATE(6);
 SELECT id, offer_type, status, asset_symbol, lender_address
 FROM   offers
@@ -234,7 +234,7 @@ SET @elapsed_db3_3 = TIMESTAMPDIFF(MICROSECOND, @t0, SYSDATE(6)) / 1000;
 SELECT CONCAT('DB3.3 – Recherche permanente FULLTEXT : ', @elapsed_db3_3, ' ms') AS perf_result;
 CALL assert_true('DB3.3 – Recherche permanente ≤ 200 ms', @elapsed_db3_3 <= 200);
 
--- DB3.4 : Offres expirées (nettoyage batch)
+-- DB3.4 : Expired offers (batch cleaning)
 SET @t0 = SYSDATE(6);
 SELECT id, on_chain_id, expires_at
 FROM   offers
@@ -248,7 +248,7 @@ CALL assert_true('DB3.4 – Offres expirées ≤ 200 ms', @elapsed_db3_4 <= 200)
 
 
 -- =============================================================================
--- Résumé
+-- Short summary of results
 -- =============================================================================
 SELECT '=== RÉSUMÉ ===' AS section;
 SELECT
