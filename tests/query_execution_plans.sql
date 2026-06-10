@@ -1,9 +1,9 @@
 -- =============================================================================
--- tests/query_execution_plans.sql  –  CoxyFi  –  Plans d'exécution Top-10
--- Utilisation : mysql -u<user> -p <db> < tests/query_execution_plans.sql
+-- tests/query_execution_plans.sql – CoxyFi – Top-10 Execution Plans
+-- Usage: mysql -u<user> -p <db> < tests/query_execution_plans.sql
 -- =============================================================================
--- Ce fichier documente les 10 requêtes les plus fréquentes avec leur plan
--- EXPLAIN et les caractéristiques de performance attendues.
+-- This file documents the 10 most frequent queries with their plan
+-- EXPLAIN and expected performance characteristics.
 -- =============================================================================
 
 SET NAMES utf8mb4;
@@ -14,10 +14,10 @@ SELECT '================================================================' AS sep
 
 
 -- ============================================================
--- Q1 : Listing des offres ouvertes avec filtre type + asset
--- Endpoint  : GET /v1/offers?type=lend&asset=USDC&status=open
--- Index     : idx_offers_filter_perf (offer_type, status, asset_address, ...)
--- Perf.     : < 10 ms sur 100 k lignes (range scan + covering index)
+-- Q1 : Listing of open offers with filter type + asset
+-- Endpoint: GET /v1/offers?type=lend&asset=USDC&status=open
+-- Index: idx_offers_filter_perf (offer_type, status, asset_address, ...)
+-- Perf.     : < 10 ms on 100 k lines (range scan + covering index)
 -- ============================================================
 SELECT 'Q1 – Listing offres filtrées' AS query_id;
 EXPLAIN FORMAT=TRADITIONAL
@@ -32,10 +32,10 @@ LIMIT 50;
 
 
 -- ============================================================
--- Q2 : Prêts actifs d'un emprunteur donné
--- Endpoint  : GET /v1/loans?borrower=0x...&status=active
--- Index     : idx_borrower_perf (borrower_address, status, originated_at, ...)
--- Perf.     : < 5 ms (ref lookup sur borrower_address + status)
+  -- Q2 : Active loans of a given borrower
+  -- Endpoint  : GET /v1/loans?borrower=0x...&status=active
+  -- Index     : idx_borrower_perf (borrower_address, status, originated_at, ...)
+  -- Perf.     : < 5 ms (ref lookup sur borrower_address + status)
 -- ============================================================
 SELECT 'Q2 – Prêts actifs par emprunteur' AS query_id;
 EXPLAIN FORMAT=TRADITIONAL
@@ -48,7 +48,7 @@ LIMIT 20;
 
 
 -- ============================================================
--- Q3 : Prêts d'un prêteur donné (toutes statuts)
+-- Q3 : Loans from a given lender (all statuses)
 -- Endpoint  : GET /v1/loans?lender=0x...
 -- Index     : idx_lender_status (lender_address, status)
 -- Perf.     : < 5 ms
@@ -63,7 +63,7 @@ LIMIT 20;
 
 
 -- ============================================================
--- Q4 : Recherche permanente d'offres (FULLTEXT)
+-- Q4 : Permanent search for offers (FULLTEXT)
 -- Endpoint  : GET /v1/search?q=USDC
 -- Index     : ft_offers_search (FULLTEXT)
 -- Perf.     : < 50 ms (MySQL InnoDB FULLTEXT inverted index)
@@ -78,7 +78,7 @@ LIMIT 50;
 
 
 -- ============================================================
--- Q5 : Détail d'une offre par on_chain_id (lookup unitaire)
+-- Q5 : DDetail of an offer by on_chain_id (unitary lookup)
 -- Endpoint  : GET /v1/offers/:on_chain_id
 -- Index     : uq_on_chain_id (UNIQUE – const lookup)
 -- Perf.     : < 1 ms
@@ -92,7 +92,7 @@ WHERE  o.on_chain_id = '0x000000000000000000000000000000000000000000000000000000
 
 
 -- ============================================================
--- Q6 : Événements non traités à indexer (polling indexeur)
+-- Q6 : Permanent search for events (pending processing)
 -- Usage     : Batch interne – indexer service
 -- Index     : idx_events_pending_perf (processed, chain_id, block_number, log_index)
 -- Perf.     : < 5 ms (range scan sur processed=0)
@@ -109,8 +109,8 @@ LIMIT 500;
 
 
 -- ============================================================
--- Q7 : Prêts arrivant à échéance dans les prochaines 24h (alertes)
--- Usage     : Cron job de notification
+-- Q7 : Active loans due within the next 24 hours (alerts)
+-- Usage     : Cron job for notifications
 -- Index     : idx_due_at (due_at)
 -- Perf.     : < 10 ms
 -- ============================================================
@@ -124,7 +124,7 @@ ORDER BY due_at ASC;
 
 
 -- ============================================================
--- Q8 : Audit trail d'une entité (ex. offre #42)
+-- Q8 : Audit trail of an entity (e.g., offer #42)
 -- Endpoint  : GET /v1/admin/audit?entity=offers&id=42
 -- Index     : idx_entity (entity_type, entity_id)
 -- Perf.     : < 5 ms
@@ -140,7 +140,7 @@ LIMIT 50;
 
 
 -- ============================================================
--- Q9 : Lookup alias d'un portefeuille
+-- Q9 : Lookup alias of a portfolio
 -- Endpoint  : GET /v1/users/:wallet/aliases
 -- Index     : idx_wallet_address (wallet_address)
 -- Perf.     : < 1 ms
@@ -155,7 +155,7 @@ ORDER BY is_primary DESC, created_at ASC;
 
 
 -- ============================================================
--- Q10 : Dashboard : volume de prêts par asset (agrégat)
+-- Q10 : Dashboard: Loan volume per asset (aggregate)
 -- Endpoint  : GET /v1/stats/loans-by-asset
 -- Index     : idx_asset_status (asset_address, status)
 -- Perf.     : < 100 ms (group by sur index covering partiel)
