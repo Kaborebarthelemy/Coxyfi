@@ -1,7 +1,7 @@
 -- =============================================================================
--- tests/integrity_check.sql  –  CoxyFi  –  Vérification de l'intégrité référentielle
--- Utilisation : mysql -u<user> -p <db> < tests/integrity_check.sql
--- Retourne 0 ligne si le schéma est intègre ; sinon liste les anomalies.
+-- tests/integrity_check.sql – CoxyFi – Referential Integrity Check
+-- Usage: mysql -u<user> -p <db> < tests/integrity_check.sql
+-- Returns 0 rows if the schema is intact; otherwise, lists the anomalies.
 -- =============================================================================
 
 SET NAMES utf8mb4;
@@ -10,14 +10,14 @@ SELECT '=== Vérification intégrité référentielle CoxyFi ===' AS title;
 SELECT NOW(3) AS checked_at;
 
 -- ---------------------------------------------------------------------------
--- IC1 : Prêts sans offre parente (enregistrements orphelins)
+-- IC1 : Loans without a parent offer (orphan records)
 -- ---------------------------------------------------------------------------
 SELECT 'IC1 – Prêts orphelins (loans sans offers parent)' AS check_id;
 SELECT l.id, l.on_chain_id, l.offer_id
 FROM   loans l
 LEFT JOIN offers o ON o.id = l.offer_id
 WHERE  o.id IS NULL;
--- Résultat attendu : 0 ligne (FK garantit déjà cela, vérification défensive)
+-- Expected result: 0 lines (FK already guarantees this, defensive check)
 
 -- ---------------------------------------------------------------------------
 -- IC2 : fiat_claims sans prêt parent
@@ -29,8 +29,8 @@ LEFT JOIN loans l ON l.id = fc.loan_id
 WHERE  l.id IS NULL;
 
 -- ---------------------------------------------------------------------------
--- IC3 : Offres matchées sans prêt correspondant
---        (peut être légitime selon le cycle de vie, signalé à titre informatif)
+-- IC3 : Matched offers without a corresponding loan
+-- (may be legitimate depending on the lifecycle, noted for informational purposes)
 -- ---------------------------------------------------------------------------
 SELECT 'IC3 – Offres matchées sans prêt (informatif)' AS check_id;
 SELECT o.id, o.on_chain_id, o.status
@@ -40,7 +40,7 @@ WHERE  o.status = 'matched'
   AND  l.id IS NULL;
 
 -- ---------------------------------------------------------------------------
--- IC4 : Prêts actifs dont l'offre est annulée (incohérence de statut)
+-- IC4 : Loans with active status while their offer is cancelled (status inconsistency)
 -- ---------------------------------------------------------------------------
 SELECT 'IC4 – Prêts actifs sur offre annulée/expirée (anomalie statut)' AS check_id;
 SELECT l.id AS loan_id, l.status AS loan_status,
@@ -51,7 +51,7 @@ WHERE  l.status = 'active'
   AND  o.status IN ('cancelled','expired');
 
 -- ---------------------------------------------------------------------------
--- IC5 : Prêts avec due_at antérieur à originated_at (dates incohérentes)
+-- IC5 : Loans with due_at earlier than originated_at (inconsistent dates)
 -- ---------------------------------------------------------------------------
 SELECT 'IC5 – Prêts avec due_at < originated_at (dates invalides)' AS check_id;
 SELECT id, on_chain_id, originated_at, due_at
@@ -59,7 +59,7 @@ FROM   loans
 WHERE  due_at < originated_at;
 
 -- ---------------------------------------------------------------------------
--- IC6 : Offres avec expires_at antérieur à block_timestamp
+-- IC6 : Offers with expires_at earlier than block_timestamp
 -- ---------------------------------------------------------------------------
 SELECT 'IC6 – Offres expirées avant leur création (dates invalides)' AS check_id;
 SELECT id, on_chain_id, block_timestamp, expires_at
@@ -68,8 +68,8 @@ WHERE  expires_at IS NOT NULL
   AND  expires_at < block_timestamp;
 
 -- ---------------------------------------------------------------------------
--- IC7 : Doublons on_chain_id actifs dans offers (violation unicité logique)
---        (le UNIQUE KEY empêche les doublons exacts ; ceci détecte les quasi-doublons)
+-- IC7 : Active on_chain_id duplicates in offers (logical uniqueness violation)
+-- (the UNIQUE KEY prevents exact duplicates; this detects near-duplicates)
 -- ---------------------------------------------------------------------------
 SELECT 'IC7 – Offres actives avec on_chain_id dupliqué' AS check_id;
 SELECT on_chain_id, COUNT(*) AS cnt
@@ -78,7 +78,7 @@ GROUP BY on_chain_id
 HAVING cnt > 1;
 
 -- ---------------------------------------------------------------------------
--- IC8 : Doublons on_chain_id dans loans
+-- IC8 : Duplicate on_chain_id in loans
 -- ---------------------------------------------------------------------------
 SELECT 'IC8 – Prêts avec on_chain_id dupliqué' AS check_id;
 SELECT on_chain_id, COUNT(*) AS cnt
@@ -87,7 +87,7 @@ GROUP BY on_chain_id
 HAVING cnt > 1;
 
 -- ---------------------------------------------------------------------------
--- IC9 : Événements dupliqués (chain_id, tx_hash, log_index)
+-- IC9 : Duplicate events (chain_id, tx_hash, log_index)
 -- ---------------------------------------------------------------------------
 SELECT 'IC9 – Événements dupliqués (chain_id+tx_hash+log_index)' AS check_id;
 SELECT chain_id, tx_hash, log_index, COUNT(*) AS cnt
@@ -96,9 +96,9 @@ GROUP BY chain_id, tx_hash, log_index
 HAVING cnt > 1;
 
 -- ---------------------------------------------------------------------------
--- IC10 : Adresses wallet_address dans users_alias référençant une adresse
---         inexistante dans offers ou loans (informatif – pas de FK appliquée
---         intentionnellement car off-chain)
+-- IC10 : Wallet addresses in users_alias referencing an address
+-- non-existent in offers or loans (informative – no foreign key applied
+-- intentionally because it's off-chain)
 -- ---------------------------------------------------------------------------
 SELECT 'IC10 – Alias sans activité connue (informatif)' AS check_id;
 SELECT ua.wallet_address, ua.alias
@@ -111,7 +111,7 @@ WHERE  ua.deleted_at IS NULL
 LIMIT 50;
 
 -- ---------------------------------------------------------------------------
--- Résumé statistique du schéma
+-- Statistical summary of the diagram
 -- ---------------------------------------------------------------------------
 SELECT '=== Résumé statistique ===' AS section;
 SELECT 'offers'       AS tbl, COUNT(*) AS `rows` FROM offers
