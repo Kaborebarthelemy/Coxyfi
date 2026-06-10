@@ -1,24 +1,24 @@
 -- =============================================================================
--- V1__init.sql  –  CoxyFi  –  Schéma initial normalisé
--- Version      : 1
--- Auteur       : CoxyFi Engineering
--- Description  : Crée l'intégralité du schéma de base de données normalisé
---                pour la plateforme CoxyFi (état de la chaîne mis en cache +
---                enregistrements opérationnels hors chaîne).
+-- V1__init.sql – CoxyFi – Normalized Initial Schema
+-- Version: 1
+-- Author: CoxyFi Engineering
+-- Description: Creates the entire normalized database schema
+-- for the CoxyFi platform (cached chain state +
+-- operational off-chain records).
 -- =============================================================================
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ---------------------------------------------------------------------------
--- TABLE : users_alias
--- Correspondance entre adresses de portefeuille on-chain et alias applicatifs.
--- Une même adresse peut avoir plusieurs alias (ex. pseudonyme + ENS).
+-- TABLE: users_alias
+-- Mapping between on-chain wallet addresses and application aliases.
+-- A single address can have multiple aliases (e.g., pseudonym + ENS).
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users_alias (
     id              BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
     wallet_address  VARCHAR(66)      NOT NULL COMMENT 'Adresse EVM/Cosmos (checksummed)',
-    alias           VARCHAR(128)     NOT NULL COMMENT 'Alias lisible par l'humain',
+    alias           VARCHAR(128)     NOT NULL COMMENT 'Alias lisible par lhumain',
     alias_type      ENUM('ens','username','email_hash','external')
                                      NOT NULL DEFAULT 'username',
     is_primary      TINYINT(1)       NOT NULL DEFAULT 0 COMMENT '1 = alias principal du portefeuille',
@@ -39,8 +39,8 @@ CREATE TABLE IF NOT EXISTS users_alias (
 
 
 -- ---------------------------------------------------------------------------
--- TABLE : offers
--- Offres de prêt publiées on-chain, mise en cache hors chaîne pour requêtes UI.
+--TABLE: offers
+-- Loan offers published on-chain, cached off-chain for UI queries.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS offers (
     id                  BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS offers (
     asset_address       VARCHAR(66)      NOT NULL COMMENT 'Adresse du token ERC-20 prêté',
     asset_symbol        VARCHAR(32)      NOT NULL,
     principal_amount    DECIMAL(36,18)   NOT NULL COMMENT 'Montant principal (unités token)',
-    interest_rate_bps   INT UNSIGNED     NOT NULL COMMENT 'Taux d'intérêt en points de base (1 bps = 0.01%)',
+    interest_rate_bps   INT UNSIGNED     NOT NULL COMMENT 'Taux dintérêt en points de base (1 bps = 0.01%)',
     duration_seconds    INT UNSIGNED     NOT NULL COMMENT 'Durée du prêt en secondes',
     collateral_address  VARCHAR(66)               DEFAULT NULL,
     collateral_symbol   VARCHAR(32)               DEFAULT NULL,
@@ -73,17 +73,17 @@ CREATE TABLE IF NOT EXISTS offers (
     log_index           INT UNSIGNED     NOT NULL,
     expires_at          DATETIME(3)               DEFAULT NULL,
 
-    -- Métadonnées off-chain
+    -- Métadata off-chain
     created_at          DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at          DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     deleted_at          DATETIME(3)               DEFAULT NULL,
 
     PRIMARY KEY (id),
-    -- Unicité : un événement on-chain ne peut produire qu'une offre
+    -- Unicity : An on-chain event can only produce one offer
     UNIQUE  KEY uq_on_chain_id          (on_chain_id),
     UNIQUE  KEY uq_tx_log               (chain_id, tx_hash, log_index),
 
-    -- Index UI fréquents
+    -- Frequent UI Index
     INDEX   idx_status                  (status),
     INDEX   idx_offer_type_status       (offer_type, status),
     INDEX   idx_lender_status           (lender_address, status),
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS offers (
     INDEX   idx_expires_at              (expires_at),
     INDEX   idx_deleted_at              (deleted_at),
 
-    -- Index composite pour le listing principal (offres ouvertes triées)
+    -- Composite Index for Main Listing (Open Offers)
     INDEX   idx_listing                 (status, offer_type, block_timestamp DESC)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS offers (
 
 -- ---------------------------------------------------------------------------
 -- TABLE : loans
--- Prêts actifs ou clôturés, issus de l'appariement d'une offre.
+-- Active or closed loans, resulting from the matching of an offer.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS loans (
     id                  BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -111,11 +111,11 @@ CREATE TABLE IF NOT EXISTS loans (
     status              ENUM('active','repaid','defaulted','liquidated','cancelled')
                                          NOT NULL DEFAULT 'active',
 
-    -- Parties
+    -- Parts
     lender_address      VARCHAR(66)      NOT NULL,
     borrower_address    VARCHAR(66)      NOT NULL,
 
-    -- Termes (snapshot au moment de l'origination)
+    -- Terms (snapshot at the time of origination)
     asset_address       VARCHAR(66)      NOT NULL,
     asset_symbol        VARCHAR(32)      NOT NULL,
     principal_amount    DECIMAL(36,18)   NOT NULL,
@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS loans (
     collateral_amount   DECIMAL(36,18)            DEFAULT NULL,
     ltv_bps             INT UNSIGNED              DEFAULT NULL,
 
-    -- Suivi du remboursement
+    -- Reimbursement tracking
     amount_repaid       DECIMAL(36,18)   NOT NULL DEFAULT 0,
     interest_accrued    DECIMAL(36,18)   NOT NULL DEFAULT 0,
 
@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS loans (
 
 -- ---------------------------------------------------------------------------
 -- TABLE : registry
--- Registre des entités on-chain référencées (assets, protocoles, contrats).
+-- Registry of on-chain entities referenced (assets, protocols, contracts).
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS registry (
     id              BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -198,7 +198,7 @@ CREATE TABLE IF NOT EXISTS registry (
 
 -- ---------------------------------------------------------------------------
 -- TABLE : events
--- Journal brut des événements on-chain reçus par l'indexeur.
+-- Raw log of on-chain events received by the indexer.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS events (
     id              BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -232,7 +232,7 @@ CREATE TABLE IF NOT EXISTS events (
 
 -- ---------------------------------------------------------------------------
 -- TABLE : audit_log
--- Trace immuable de toutes les mutations de données applicatives.
+-- Immutable record of all application data changes.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS audit_log (
     id              BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -261,8 +261,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 -- ---------------------------------------------------------------------------
 -- TABLE : fiat_claims
--- Demandes de remboursement fiat liées à un prêt (passerelle off-ramp).
--- (Table optionnelle – présente si le module fiat est activé.)
+-- Fiat repayment requests linked to a loan (off-ramp gateway).
+-- (Optional table – present if the fiat module is enabled.)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS fiat_claims (
     id                  BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
