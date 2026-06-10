@@ -1,8 +1,7 @@
 -- =============================================================================
--- V3__schema_version_tracking.sql  –  CoxyFi
--- Version      : 3
--- Description  : Crée la table de suivi des migrations (utilisée par le runner
---                natif si Flyway/Liquibase ne sont pas disponibles).
+-- V3__schema_version_tracking.sql – CoxyFi
+-- Version: 3
+-- Description: Creates the migration tracking table (used by the native runner if Flyway/Liquibase are not available).
 -- =============================================================================
 
 SET NAMES utf8mb4;
@@ -24,7 +23,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
   COLLATE=utf8mb4_unicode_ci
   COMMENT='Historique des migrations appliquées';
 
--- Enregistre rétroactivement les migrations précédentes
+-- Retroactively saves previous migrations
 INSERT INTO schema_version (version, description, script, installed_by)
 VALUES
     (1, 'Initial schema', 'V1__init.sql', 'system'),
